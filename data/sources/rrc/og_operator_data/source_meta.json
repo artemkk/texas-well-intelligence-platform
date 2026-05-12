@@ -1,0 +1,14 @@
+{
+  "filename": "p5_organization_20260512.txt",
+  "size_bytes": 115230659,
+  "sha256": "c5b2eb8b7d8c69f8b25b0d68784d07fc1fd70e110774a7c92138d0d52ca06572",
+  "download_url": "https://mft.rrc.texas.gov/link/04652169-eed6-4396-9019-2e270e790f6c",
+  "download_method": "playwright_firefox_headless",
+  "download_timestamp": "2026-05-12T23:32:50.524164+00:00",
+  "record_layout_url": "https://www.rrc.texas.gov/media/jtqfynn3/ora001_p5_manual_october-2014.pdf",
+  "file_type": "fixed_width_text",
+  "record_length": 350,
+  "contents": [
+    "p5_organization_20260512.txt"
+  ]
+}

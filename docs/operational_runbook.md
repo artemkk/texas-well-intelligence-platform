@@ -135,6 +135,40 @@ to be fine in foreground (<5 min) or use this pattern regardless.
 
 ---
 
+## Source Acquisition: Browser Automation via Playwright
+
+**Added: 2026-05-12**
+
+RRC bulk data sources served through mft.rrc.texas.gov require
+browser-based session handling. Standard HTTP clients cannot fetch
+these directly. Pattern for all TWIP RRC sources served via MFT:
+
+1. Build a Playwright fetcher script at
+   `scripts/automation/fetch_<source_name>.py`
+2. Firefox backend, headless by default
+3. Navigate to the MFT link, capture the download event, save to
+   canonical source path
+4. Write `source_meta.json` sidecar with SHA-256 hash, download
+   URL, download method, timestamp
+5. The corresponding ingestion pipeline accepts `--source-file`
+   arg and verifies the hash before parsing
+
+This pattern generalizes to every MFT-served RRC source: well
+registry, production data, permits, completions, plugging records,
+injection, pipeline permits, others.
+
+No manual download steps are acceptable in TWIP operational
+workflows. If a Playwright fetcher cannot navigate a source's
+portal, the next attempts in priority order are:
+(a) cookie-replay using a one-time manually-captured session token
+(b) the RRC's official data request channels for an alternative
+    endpoint
+(c) other browser-automation approaches
+
+Manual-download is not a documented pattern.
+
+---
+
 ## Future Rules
 
 Additional standing rules will be appended below as they emerge from

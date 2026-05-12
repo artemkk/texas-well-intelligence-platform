@@ -18,6 +18,15 @@ data/delivery/
 data/output/
 data/raw/
 
+# Source data files (large; provenance tracked via source_meta.json)
+data/sources/rrc/*/p5_organization_*.txt
+data/sources/rrc/*/p5_organization_*.zip
+data/sources/rrc/*/p5_organization_*.gz
+data/sources/rrc/*/*.ebc
+data/sources/rrc/*/mft_page_debug.html
+# Keep source_meta.json tracked for provenance
+!data/sources/rrc/*/source_meta.json
+
 # Runtime logs
 logs/
 
