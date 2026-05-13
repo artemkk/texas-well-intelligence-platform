@@ -1,8 +1,13 @@
-"""Ingest RRC production data (EBCDIC format) into twip_fact_production_monthly.
+"""Ingest RRC Oil Production Data (EBCDIC + COMP-3) into twip_fact_production_monthly.
 
-The source file (PDF100.ebc) is EBCDIC-encoded with packed decimal fields.
-Converts EBCDIC to ASCII, parses fixed-width fields, outputs lease-level
-monthly production.
+Source: PDF100.ebc (OIL TAPE), EBCDIC character set, 102-byte fixed records.
+Layout: PDA001 COBOL copybook (49 pages).
+
+Record types: 01=Root, 02=Reporting Cycle, 03=Production, 04=Discrepancy,
+05=Disposition, 06=Casinghead Disposition, 07=Previous Production Report,
+08-13=Commingle segments, 22=Remarks, 23=Disposition Remarks, 24=Commingle Remarks.
+
+Hierarchy: Root(01) → Reporting Cycle(02) → Production(03) + Disposition(05) + ...
 
 Usage:
     python scripts/ingestion/ingest_production_data.py --subset 10000
@@ -19,20 +24,7 @@ DEFAULT_SOURCE = Path("data/sources/rrc/production_data")
 OUTPUT_DIR = Path("data/raw/twip_fact_production_monthly")
 RAW_DIR = Path("data/raw/twip_fact_production_records_raw")
 
-# EBCDIC to ASCII translation table (IBM cp037)
-EBCDIC_TABLE = bytes(range(256))
-try:
-    # Build translation: EBCDIC byte -> ASCII char
-    _e2a = {}
-    for i in range(256):
-        try:
-            ch = bytes([i]).decode("cp037")
-            _e2a[i] = ord(ch) if len(ch) == 1 and ord(ch) < 128 else ord(" ")
-        except (UnicodeDecodeError, ValueError):
-            _e2a[i] = ord(" ")
-    EBCDIC_TO_ASCII = bytes(_e2a[i] for i in range(256))
-except Exception:
-    EBCDIC_TO_ASCII = None
+RECORD_LENGTH = 102
 
 
 def setup_logging(log_path):
@@ -51,30 +43,105 @@ def setup_logging(log_path):
 
 
 def find_source(source_dir):
-    for ext in ["*.txt", "*.ebc", "*.dat", "*.gz"]:
+    for ext in ["*.txt", "*.ebc", "*.dat"]:
         files = sorted(source_dir.glob(ext), reverse=True)
         if files:
             return files[0]
     return None
 
 
-def decode_packed_decimal(raw_bytes: bytes) -> float:
-    """Decode IBM packed decimal (COMP-3) to float."""
-    if not raw_bytes or all(b == 0 for b in raw_bytes):
-        return 0.0
+def decode_ebcdic(raw: bytes) -> str:
+    """Decode EBCDIC bytes to ASCII string."""
+    return raw.decode("cp037", errors="replace")
+
+
+def unpack_comp3(raw: bytes) -> int:
+    """Unpack COMP-3 (packed decimal) bytes to integer.
+    PIC S9(09) COMP-3 = 5 bytes = 9 digits + sign nibble.
+    High nibble of each byte = digit, low nibble = digit (except last byte).
+    Last byte: high nibble = digit, low nibble = sign (C=positive, D=negative, F=unsigned positive).
+    """
+    if not raw or len(raw) == 0:
+        return 0
     result = 0
-    for byte in raw_bytes[:-1]:
+    for byte in raw[:-1]:
         hi = (byte >> 4) & 0x0F
         lo = byte & 0x0F
         result = result * 100 + hi * 10 + lo
-    # Last byte: high nibble is digit, low nibble is sign
-    last = raw_bytes[-1]
+    # Last byte
+    last = raw[-1]
     hi = (last >> 4) & 0x0F
-    sign_nibble = last & 0x0F
+    sign = last & 0x0F
     result = result * 10 + hi
-    if sign_nibble in (0x0D, 0x0B):  # negative
+    if sign == 0x0D or sign == 0x0B:  # negative
         result = -result
-    return float(result)
+    return result
+
+
+def parse_root_01(rec: bytes) -> dict:
+    """Parse Root Segment (01). Record length 50 bytes data + 52 filler."""
+    return {
+        "record_type": "01",
+        "oil_code": decode_ebcdic(rec[2:3]),           # pos 3, PIC X(1)
+        "district": decode_ebcdic(rec[3:5]),            # pos 4, PIC 9(2)
+        "lease_number": decode_ebcdic(rec[5:11]),       # pos 6, PIC 9(06)
+        "movable_balance": unpack_comp3(rec[11:16]),    # pos 12, COMP-3 5 bytes
+        "beginning_oil_status": unpack_comp3(rec[16:21]),  # pos 17
+        "beginning_csghd_status": unpack_comp3(rec[21:26]),  # pos 22
+        "oil_oldest_eom_balance": unpack_comp3(rec[26:31]),  # pos 27
+    }
+
+
+def parse_reporting_cycle_02(rec: bytes) -> dict:
+    """Parse Reporting Cycle Segment (02). Record length 80 bytes data + 22 filler."""
+    return {
+        "record_type": "02",
+        "rpt_cycle_key": decode_ebcdic(rec[2:6]),       # pos 3, PIC 9(04) = MMYY
+        "daily_oil_prorated_allow": unpack_comp3(rec[6:11]),  # pos 7
+        "daily_oil_exempt_allow": unpack_comp3(rec[11:16]),   # pos 12
+        "daily_csh_prorated_allow": unpack_comp3(rec[16:21]), # pos 17
+        "daily_csh_exempt_allow": unpack_comp3(rec[21:26]),   # pos 22
+        "oil_allowable_cycle_bbls": unpack_comp3(rec[26:31]), # pos 27
+        "csh_limit_cycle_mcf": unpack_comp3(rec[31:36]),      # pos 32
+        "oil_allow_effect_year": decode_ebcdic(rec[36:40]),   # pos 37
+        "oil_allow_effect_month": decode_ebcdic(rec[40:42]),  # pos 41
+        "oil_allow_effect_day": decode_ebcdic(rec[42:44]),    # pos 43
+        "oil_allow_issue_year": decode_ebcdic(rec[44:48]),    # pos 45
+        "oil_allow_issue_month": decode_ebcdic(rec[48:50]),   # pos 49
+        "oil_allow_issue_day": decode_ebcdic(rec[50:52]),     # pos 51
+        "oil_ending_balance": unpack_comp3(rec[52:57]),       # pos 53
+        "present_oil_status": unpack_comp3(rec[57:62]),       # pos 58
+        "present_csghd_status": unpack_comp3(rec[62:67]),     # pos 63
+        "adjusted_oil_status": unpack_comp3(rec[67:72]),      # pos 68
+        "adjusted_csghd_status": unpack_comp3(rec[72:77]),    # pos 73
+    }
+
+
+def parse_production_03(rec: bytes) -> dict:
+    """Parse Production Segment (03). Record length 38 bytes data + 64 filler.
+    THIS IS THE KEY SEGMENT — contains actual production volumes."""
+    return {
+        "record_type": "03",
+        "corrected_report_flag": decode_ebcdic(rec[2:3]),     # pos 3, N/Y
+        "oil_production_bbl": unpack_comp3(rec[6:11]),        # pos 7, COMP-3
+        "casinghead_gas_mcf": unpack_comp3(rec[11:16]),       # pos 12, COMP-3
+        "casinghead_gas_lift": unpack_comp3(rec[16:21]),      # pos 17, COMP-3
+        "batch_number": decode_ebcdic(rec[21:24]),            # pos 22
+        "item_number": decode_ebcdic(rec[24:28]),             # pos 25
+        "posting_year": decode_ebcdic(rec[28:32]),            # pos 29
+        "posting_month": decode_ebcdic(rec[32:34]),           # pos 33
+        "posting_day": decode_ebcdic(rec[34:36]),             # pos 35
+        "filed_by_edi": decode_ebcdic(rec[36:37]),            # pos 37
+    }
+
+
+def parse_disposition_05(rec: bytes) -> dict:
+    """Parse Disposition & Stock Adjustment (05). Record length 7 bytes + 95 filler."""
+    return {
+        "record_type": "05",
+        "disposition_code": decode_ebcdic(rec[2:4]),          # pos 3, PIC 9(02)
+        "disposition_amount": unpack_comp3(rec[4:9]),         # pos 5, COMP-3
+    }
 
 
 def ingest(source_path, output_dir, raw_dir, subset, log):
@@ -84,140 +151,116 @@ def ingest(source_path, output_dir, raw_dir, subset, log):
     raw_path = raw_dir / "twip_fact_production_records_raw.parquet"
 
     log.info(f"Source: {source_path} ({source_path.stat().st_size/1024/1024:.1f} MB)")
+    log.info(f"Record length: {RECORD_LENGTH}")
 
-    # Read the entire file as binary
-    log.info("Reading EBCDIC file...")
     with open(source_path, "rb") as f:
         raw_data = f.read()
 
     file_size = len(raw_data)
-    log.info(f"File size: {file_size:,} bytes")
+    n_records = file_size // RECORD_LENGTH
+    remainder = file_size % RECORD_LENGTH
+    log.info(f"File: {file_size:,} bytes, {n_records:,} records, remainder {remainder}")
 
-    # Determine record length by finding consistent line breaks
-    # EBCDIC files may not have newlines — try fixed record length
-    # The RRC production file typically uses 100-byte or 200-byte records
-    # Try to detect from the data pattern
+    if subset:
+        n_records = min(n_records, subset)
+        log.info(f"Subset: {n_records:,} records")
 
-    # Convert EBCDIC to ASCII for the first chunk to detect structure
-    if EBCDIC_TO_ASCII:
-        sample = raw_data[:2000].translate(EBCDIC_TO_ASCII).decode("ascii", errors="replace")
-        log.info(f"First 200 chars (EBCDIC→ASCII): {sample[:200]}")
-    else:
-        sample = raw_data[:2000].decode("cp037", errors="replace")
-        log.info(f"First 200 chars (cp037): {sample[:200]}")
-
-    # Try to find record boundaries
-    # Look for repeating patterns in the first few KB
-    # Common RRC production record lengths: 100, 132, 156, 200
-    candidate_lengths = [100, 132, 156, 180, 200, 250, 300]
-    best_len = None
-
-    for rl in candidate_lengths:
-        if file_size % rl == 0 or file_size % rl < 10:
-            # Check if records at this length show consistent structure
-            if EBCDIC_TO_ASCII:
-                r1 = raw_data[0:rl].translate(EBCDIC_TO_ASCII).decode("ascii", errors="replace")
-                r2 = raw_data[rl:2*rl].translate(EBCDIC_TO_ASCII).decode("ascii", errors="replace")
-            else:
-                r1 = raw_data[0:rl].decode("cp037", errors="replace")
-                r2 = raw_data[rl:2*rl].decode("cp037", errors="replace")
-            # Check if first 2 chars look like district codes
-            if r1[:2].strip().isdigit() and r2[:2].strip().isdigit():
-                best_len = rl
-                log.info(f"  Record length {rl}: looks good (r1={r1[:20]!r}, r2={r2[:20]!r})")
-                break
-            else:
-                log.debug(f"  Record length {rl}: r1={r1[:20]!r}, r2={r2[:20]!r}")
-
-    if not best_len:
-        # Fallback: try newline-delimited
-        if b"\n" in raw_data[:10000]:
-            log.info("File appears newline-delimited")
-            if EBCDIC_TO_ASCII:
-                text = raw_data.translate(EBCDIC_TO_ASCII).decode("ascii", errors="replace")
-            else:
-                text = raw_data.decode("cp037", errors="replace")
-            lines = text.split("\n")
-            log.info(f"Lines: {len(lines):,}")
-            best_len = None  # Use line-by-line
-        else:
-            log.error("PIPELINE_FAILED: cannot determine record length")
-            sys.exit(1)
-
+    # Parse all records, tracking hierarchy
+    raw_rows = []
+    production_rows = []
+    current_root = {}
+    current_cycle = {}
+    rec_type_counts = {}
     start = time.time()
-    rows = []
     last_hb = start
 
-    if best_len:
-        n_records = file_size // best_len
-        log.info(f"Record length: {best_len}, estimated records: {n_records:,}")
+    for i in range(n_records):
+        offset = i * RECORD_LENGTH
+        rec = raw_data[offset:offset + RECORD_LENGTH]
+        rec_id = decode_ebcdic(rec[0:2]).strip()
+        rec_type_counts[rec_id] = rec_type_counts.get(rec_id, 0) + 1
 
-        for i in range(n_records):
-            if subset and len(rows) >= subset:
-                break
-
-            offset = i * best_len
-            rec_raw = raw_data[offset:offset + best_len]
-            if EBCDIC_TO_ASCII:
-                rec = rec_raw.translate(EBCDIC_TO_ASCII).decode("ascii", errors="replace")
-            else:
-                rec = rec_raw.decode("cp037", errors="replace")
-
+        if rec_id == "01":
+            current_root = parse_root_01(rec)
+        elif rec_id == "02":
+            current_cycle = parse_reporting_cycle_02(rec)
+        elif rec_id == "03":
+            prod = parse_production_03(rec)
+            # Combine with parent context
             row = {
-                "record_raw": rec.rstrip(),
-                "district": rec[0:2].strip(),
-                "lease_number": rec[2:8].strip(),
+                "district": current_root.get("district", ""),
+                "lease_number": current_root.get("lease_number", ""),
+                "oil_code": current_root.get("oil_code", ""),
+                "rpt_cycle_key": current_cycle.get("rpt_cycle_key", ""),
+                "oil_production_bbl": prod["oil_production_bbl"],
+                "casinghead_gas_mcf": prod["casinghead_gas_mcf"],
+                "casinghead_gas_lift": prod["casinghead_gas_lift"],
+                "corrected_report_flag": prod["corrected_report_flag"],
+                "posting_year": prod["posting_year"],
+                "posting_month": prod["posting_month"],
+                "posting_day": prod["posting_day"],
+                "filed_by_edi": prod["filed_by_edi"],
+                "oil_ending_balance": current_cycle.get("oil_ending_balance", 0),
+                "oil_allowable_cycle_bbls": current_cycle.get("oil_allowable_cycle_bbls", 0),
             }
+            production_rows.append(row)
 
-            # Try to extract more fields by position
-            # Exact positions depend on the COBOL layout which we don't have
-            # Capture what we can from visible patterns
-            if len(rec) >= 40:
-                row["field1"] = rec[8:14].strip()
-                row["field2"] = rec[14:20].strip()
-                row["field3"] = rec[20:28].strip()
-                row["field4"] = rec[28:36].strip()
-                row["field5"] = rec[36:44].strip()
+        # Raw preservation — store record type + hex for all records
+        raw_rows.append({
+            "record_index": i,
+            "record_type": rec_id,
+            "raw_hex": rec[:40].hex(),
+            "district": current_root.get("district", ""),
+            "lease_number": current_root.get("lease_number", ""),
+        })
 
-            rows.append(row)
+        now = time.time()
+        if now - last_hb >= 60:
+            elapsed = now - start
+            rate = (i + 1) / elapsed
+            log.info(f"HEARTBEAT: {i+1:,}/{n_records:,} records "
+                     f"({rate:.0f} rec/s, {len(production_rows):,} production rows)")
+            last_hb = now
 
-            now = time.time()
-            if now - last_hb >= 60:
-                log.info(f"HEARTBEAT: {len(rows):,}/{n_records:,} records, {now-start:.0f}s")
-                last_hb = now
-    else:
-        # Line-by-line
-        for i, line in enumerate(lines):
-            if not line.strip():
-                continue
-            if subset and len(rows) >= subset:
-                break
-            row = {
-                "record_raw": line.rstrip()[:300],
-                "district": line[0:2].strip() if len(line) >= 2 else "",
-                "lease_number": line[2:8].strip() if len(line) >= 8 else "",
-            }
-            rows.append(row)
+    log.info(f"Record type distribution: {rec_type_counts}")
+    log.info(f"Production rows (type 03): {len(production_rows):,}")
+    log.info(f"Raw rows (all types): {len(raw_rows):,}")
 
-    df = pd.DataFrame(rows)
-    df["scraped_at"] = datetime.now(timezone.utc).isoformat()
-    log.info(f"Parsed: {len(df):,} rows")
+    # Parse rpt_cycle_key (MMYY) into prod_month and prod_year
+    df_prod = pd.DataFrame(production_rows)
+    if len(df_prod) > 0:
+        # rpt_cycle_key is documented as MMYY but data shows YYMM pattern
+        # (values like 2304 = year 2023, month 04). Detect and handle both.
+        first2 = df_prod["rpt_cycle_key"].str[:2]
+        if (first2.astype(int, errors="ignore") > 12).mean() > 0.5:
+            # YYMM format (most values have year > 12 in first 2 digits)
+            df_prod["prod_year"] = df_prod["rpt_cycle_key"].str[:2].apply(
+                lambda x: "20" + x if x < "50" else "19" + x)
+            df_prod["prod_month"] = df_prod["rpt_cycle_key"].str[2:4]
+        else:
+            # MMYY format (as documented)
+            df_prod["prod_month"] = df_prod["rpt_cycle_key"].str[:2]
+            df_prod["prod_year"] = df_prod["rpt_cycle_key"].str[2:4].apply(
+                lambda x: "20" + x if x < "50" else "19" + x)
+        df_prod["scraped_at"] = datetime.now(timezone.utc).isoformat()
 
-    # Raw preservation
-    raw_tmp = raw_dir / "twip_fact_production_records_raw.parquet.tmp"
-    df.to_parquet(str(raw_tmp), index=False)
-    os.replace(str(raw_tmp), str(raw_path))
-    log.info(f"Raw: {raw_path} ({len(df):,} rows)")
-
-    # Derived (same structure for now — proper field extraction
-    # requires the COBOL layout doc PDA001.pdf)
+    # Write production
     tmp = output_dir / "twip_fact_production_monthly.parquet.tmp"
-    df.to_parquet(str(tmp), index=False)
+    df_prod.to_parquet(str(tmp), index=False)
     os.replace(str(tmp), str(out_path))
+    log.info(f"Production: {out_path} ({len(df_prod):,} rows, {out_path.stat().st_size/1024/1024:.1f} MB)")
+
+    # Write raw
+    df_raw = pd.DataFrame(raw_rows)
+    df_raw["scraped_at"] = datetime.now(timezone.utc).isoformat()
+    raw_tmp = raw_dir / "twip_fact_production_records_raw.parquet.tmp"
+    df_raw.to_parquet(str(raw_tmp), index=False)
+    os.replace(str(raw_tmp), str(raw_path))
+    log.info(f"Raw: {raw_path} ({len(df_raw):,} rows)")
 
     elapsed = time.time() - start
-    log.info(f"Written: {out_path} ({len(df):,} rows, {out_path.stat().st_size/1024/1024:.1f} MB)")
-    log.info(f"PIPELINE_COMPLETE: {len(df):,} production records in {elapsed:.1f}s")
+    log.info(f"PIPELINE_COMPLETE: {len(df_prod):,} production rows, "
+             f"{len(df_raw):,} raw rows in {elapsed:.1f}s")
 
 
 def main():
