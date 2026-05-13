@@ -1,4 +1,4 @@
-"""Fetch RRC injection/UIC data via Playwright. Fixed to target uif700a.txt.gz."""
+"""Fetch RRC inspections/violations data via Playwright."""
 from __future__ import annotations
 import argparse, logging, sys
 from datetime import datetime, timezone
@@ -6,13 +6,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rrc_mft_fetcher import fetch_from_mft
 
-MFT_URL = "https://mft.rrc.texas.gov/link/d2438c05-b42f-45a8-b0c6-edceb0912767"
-DEFAULT_OUTPUT_DIR = Path("data/sources/rrc/injection_uic")
-LOG_PATH = Path("logs/fetch_injection_uic.log")
+MFT_URL = "https://mft.rrc.texas.gov/link/c7c28dc9-b218-4f0a-8278-bf15d009def1"
+DEFAULT_OUTPUT_DIR = Path("data/sources/rrc/inspections")
+LOG_PATH = Path("logs/fetch_inspections.log")
 
 def setup_logging(log_path):
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    logger = logging.getLogger("fetch_injection_uic")
+    logger = logging.getLogger("fetch_inspections")
     logger.setLevel(logging.DEBUG)
     fh = logging.FileHandler(str(log_path), mode="w", encoding="utf-8")
     fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%dT%H:%M:%S"))
@@ -30,9 +30,8 @@ def main():
     log = setup_logging(LOG_PATH)
     today = datetime.now(timezone.utc).strftime("%Y%m%d")
     try:
-        fetch_from_mft(MFT_URL, f"uic_database_{today}.dat", args.output_dir,
-                       headless=not args.no_headless, log=log,
-                       preferred_file="uif700a.txt.gz")
+        fetch_from_mft(MFT_URL, f"inspections_{today}.dat", args.output_dir,
+                       headless=not args.no_headless, log=log)
     except Exception as e:
         log.error(f"PIPELINE_FAILED: {e}", exc_info=True)
         sys.exit(1)

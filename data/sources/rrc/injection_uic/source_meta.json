@@ -1,9 +1,9 @@
 {
-  "filename": "uic_database_20260513.txt",
-  "size_bytes": 574,
-  "sha256": "22e7a44ff8f31fc6ab97e2ce410e31ddce4da916c905e5cb07a9a1941ecad04b",
+  "filename": "uic_database_20260513.gz",
+  "size_bytes": 280537361,
+  "sha256": "6b1a9215e536c18d108cdc735877af95893509767b34f73f5d9445476cad6423",
   "download_url": "https://mft.rrc.texas.gov/link/d2438c05-b42f-45a8-b0c6-edceb0912767",
   "download_method": "playwright_firefox_headless",
-  "download_timestamp": "2026-05-13T00:32:43.815568+00:00",
-  "file_type": "fixed_width_text"
+  "download_timestamp": "2026-05-13T02:21:56.950202+00:00",
+  "file_type": "gzip"
 }
