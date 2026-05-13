@@ -28,8 +28,9 @@
 - **Fetcher:** scripts/automation/fetch_production_data.py
 - **Ingestion:** scripts/ingestion/ingest_production_data.py
 - **Output tables:** twip_fact_production_monthly (1,625,955), twip_fact_production_records_raw (10,787,639)
-- **Status:** COMPLETE
+- **Status:** COMPLETE + VERIFIED
 - **Last ingestion:** 2026-05-13
+- **PDQ verification:** 10/10 PASS (2026-05-13). See docs/audits/p-twip-015-verify_pdq_verification.md
 - **Notes:** 16 segment types in hierarchical structure. Only type-03 (Production) extracted to monthly table. Date format is YYMM despite PDA001 documenting MMYY.
 
 ### Source #3: Drilling Permits
