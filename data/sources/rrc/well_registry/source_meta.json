@@ -1,9 +1,12 @@
 {
-  "filename": "well_completion_20260513.zip",
-  "size_bytes": 1873,
-  "sha256": "9e1df0c590ade932e3134198b01e1f2ce573227584f9ca6b58696662b7acff58",
-  "download_url": "https://mft.rrc.texas.gov/link/ed7ab066-879f-40b6-8144-2ae4b6810c04",
+  "source": "RRC Statewide API Data (dBase format)",
+  "download_url": "https://mft.rrc.texas.gov/link/1eb94d66-461d-4114-93f7-b4bc04a70674",
   "download_method": "playwright_firefox_headless",
-  "download_timestamp": "2026-05-13T00:31:19.677757+00:00",
-  "file_type": "zip"
+  "download_timestamp": "2026-05-13T00:49:56.616668+00:00",
+  "file_count": 250,
+  "failed_count": 0,
+  "total_size_bytes": 360322420,
+  "manifest_hash": "918c9abd260160e00b22cce355f63a80dd141218da3e6fec92e718948b1d3c0c",
+  "failed_files": [],
+  "record_layout_url": "https://www.rrc.texas.gov/media/bkyl5qvx/well-api-manual.pdf"
 }
