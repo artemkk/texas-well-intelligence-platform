@@ -169,6 +169,26 @@ Manual-download is not a documented pattern.
 
 ---
 
+## Standing Rule: Documentation Required Per Ingestion
+
+**Added: 2026-05-13**
+
+Every ingestion prompt (P-TWIP-XXX for any source) MUST produce or
+update the following documentation as part of its work:
+
+1. **Source inventory entry** in `docs/source_inventory.md`
+2. **Data dictionary entry** in `docs/data_dictionary.md`: full
+   column-by-column schema for every output table
+3. **QA companion table** at
+   `data/raw/twip_qa_<table_slug>/twip_qa_<table_slug>.parquet`:
+   Level 1 ingestion validation results
+4. **Buyer-facing bundle manifest update** in
+   `docs/delivery_bundle_manifest.md` for any new delivery table
+
+Ingestion prompts that omit these are incomplete.
+
+---
+
 ## Future Rules
 
 Additional standing rules will be appended below as they emerge from
