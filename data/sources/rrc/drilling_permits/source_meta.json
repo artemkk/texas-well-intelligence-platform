@@ -1,0 +1,9 @@
+{
+  "filename": "drilling_permit_20260513.gz",
+  "size_bytes": 82865572,
+  "sha256": "dc9da8857bb482a5bcb4b9d2cebe148ef6bab57aa1deaed3b54d55489e4a089a",
+  "download_url": "https://mft.rrc.texas.gov/link/e99fbe81-40cd-4a79-b992-9fc71d0f06d4",
+  "download_method": "playwright_firefox_headless",
+  "download_timestamp": "2026-05-13T00:31:45.750494+00:00",
+  "file_type": "gzip"
+}

@@ -1,0 +1,9 @@
+{
+  "filename": "hearings_20260513.gz",
+  "size_bytes": 91196900,
+  "sha256": "35d1a81ad776bd6ba9525f350667e39590d6059cfe7f23b5050c55be8d1ff301",
+  "download_url": "https://mft.rrc.texas.gov/link/e9af053b-28c8-49b2-ad40-bf2f10f4f21a",
+  "download_method": "playwright_firefox_headless",
+  "download_timestamp": "2026-05-13T00:33:32.043994+00:00",
+  "file_type": "gzip"
+}
