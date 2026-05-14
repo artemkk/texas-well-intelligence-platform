@@ -26,6 +26,32 @@ publishing, RRC PDQ lookups, etc.).
 Every flow: owner describes intent -> assistant drafts prompt -> owner pastes
 into CC -> CC executes and reports -> owner pastes output back to assistant.
 
+## Sub-agent usage (RESTRICTED)
+
+Claude Code's sub-agent feature is restricted to read-only diagnostic tasks
+only.
+
+Acceptable sub-agent uses:
+- Read-only inventories (list files, count rows, summarize existing content)
+- Read-only classification (categorize files by type, group by attribute)
+- Read-only lookups across multiple files
+
+NOT acceptable for sub-agents:
+- File creation of any kind (scripts, docs, configs, Parquet outputs)
+- File modifications (edits to existing files)
+- Pipeline implementation or execution
+- Git operations (add, commit, push, branch)
+- Any work whose output affects what gets shipped to buyers
+
+For all file creation, modifications, and pipeline work, the main CC session
+does the work directly. This keeps the reasoning visible to the owner and
+makes verification possible.
+
+If the main CC delegates work to a sub-agent and the sub-agent returns output
+that includes file changes or pipeline state, the main CC must verify the
+changes by reading the relevant files directly before treating them as
+complete. Sub-agent output is advisory only for any non-read-only work.
+
 ## Standing rules
 
 See `docs/operational_runbook.md` for:
