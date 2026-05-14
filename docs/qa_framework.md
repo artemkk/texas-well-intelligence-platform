@@ -94,3 +94,15 @@ ingested. Level 3 checks run periodically or on-demand.
 
 Run QA via: `python scripts/qa/run_qa_for_table.py --table-slug <slug>`
 Run all:    `python scripts/qa/run_qa_for_table.py --all`
+
+## QA Summary and Review Queue
+
+The summary runner aggregates all companion tables into a single view:
+
+- **Runner:** `python scripts/qa/run_qa_summary.py`
+- **Output:** `data/raw/twip_qa_summary/twip_qa_summary.parquet` — one row per (table, check)
+- **Review queue:** `logs/qa_review_queue_<YYYYMMDD>.md` — new FAILs and WARNs
+
+Invoke the summary runner after any ingestion pipeline completes, or on a
+periodic schedule. Owner reviews the queue file and decides remediation for
+any new issues.

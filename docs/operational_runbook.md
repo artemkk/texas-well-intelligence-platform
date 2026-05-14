@@ -189,6 +189,26 @@ Ingestion prompts that omit these are incomplete.
 
 ---
 
+## QA Summary Review Pattern
+
+**Added: 2026-05-14**
+
+After any ingestion pipeline completes, or on a periodic schedule:
+
+1. Run `python scripts/qa/run_qa_summary.py`
+2. The runner scans all `twip_qa_*.parquet` companion tables
+3. Writes `data/raw/twip_qa_summary/twip_qa_summary.parquet` with latest
+   status per (table, check)
+4. Generates `logs/qa_review_queue_<YYYYMMDD>.md` listing new FAILs and WARNs
+5. Owner reviews the queue file and decides remediation
+
+Level 1 FAILs are pipeline-blocking (the pipeline itself won't commit output).
+Level 2/3 FAILs appear in the review queue for owner judgment.
+
+See `docs/qa_framework.md` for the full three-level check pattern.
+
+---
+
 ## Future Rules
 
 Additional standing rules will be appended below as they emerge from
