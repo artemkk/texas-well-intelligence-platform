@@ -39,6 +39,10 @@ See `docs/operational_runbook.md` for:
 - **Documentation requirement per ingestion** -- every ingestion prompt must
   update: source inventory, data dictionary, QA companion table, and delivery
   bundle manifest.
+- **Unified QA framework** -- see `docs/qa_framework.md`. Three-level check
+  pattern (L1 ingestion, L2 referential, L3 analytical). Per-table companion
+  tables at `data/raw/twip_qa_<slug>/`. Level 1 fails block pipeline commit.
+  Run via `scripts/qa/run_qa_for_table.py`.
 
 ## Architecture conventions
 
