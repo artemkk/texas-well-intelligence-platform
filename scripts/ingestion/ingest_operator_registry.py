@@ -19,7 +19,7 @@ import pyarrow.parquet as pq
 
 LOG_PATH = Path("logs/operator_registry.log")
 DEFAULT_SOURCE_DIR = Path("data/sources/rrc/og_operator_data")
-DEFAULT_OUTPUT_DIR = Path("data/raw/rrc_operator_registry")
+DEFAULT_OUTPUT_DIR = Path("data/raw/twip_dim_operator_registry")
 
 # Record layout for 'A' records (Organization Information)
 # From ORA001 P5 Manual, Section II, pp II.2-II.5
@@ -197,9 +197,9 @@ def build_registry_row(raw: dict) -> dict:
 
 def create_empty_companion_tables(log: logging.Logger):
     """Create empty operator_history and operator_consolidation tables."""
-    history_dir = Path("data/raw/rrc_operator_history")
+    history_dir = Path("data/raw/twip_dim_operator_history")
     history_dir.mkdir(parents=True, exist_ok=True)
-    history_path = history_dir / "operator_history.parquet"
+    history_path = history_dir / "twip_dim_operator_history.parquet"
     if not history_path.exists():
         schema = pa.schema([
             ("api10", pa.string()), ("operator_number", pa.string()),
@@ -211,9 +211,9 @@ def create_empty_companion_tables(log: logging.Logger):
         pq.write_table(pa.table({c.name: [] for c in schema}, schema=schema), str(history_path))
         log.info(f"Created empty operator_history at {history_path}")
 
-    consol_dir = Path("data/raw/rrc_operator_consolidation")
+    consol_dir = Path("data/raw/twip_dim_operator_consolidation")
     consol_dir.mkdir(parents=True, exist_ok=True)
-    consol_path = consol_dir / "operator_consolidation.parquet"
+    consol_path = consol_dir / "twip_dim_operator_consolidation.parquet"
     if not consol_path.exists():
         schema = pa.schema([
             ("operator_number", pa.string()), ("parent_operator_number", pa.string()),
@@ -227,8 +227,8 @@ def create_empty_companion_tables(log: logging.Logger):
 def ingest(source_file: Path, output_dir: Path, subset: int | None,
            log: logging.Logger) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_path = output_dir / "operator_registry.parquet"
-    tmp_path = output_dir / "operator_registry.parquet.tmp"
+    out_path = output_dir / "twip_dim_operator_registry.parquet"
+    tmp_path = output_dir / "twip_dim_operator_registry.parquet.tmp"
 
     log.info(f"Source: {source_file} ({source_file.stat().st_size:,} bytes)")
     log.info(f"Output: {out_path}")

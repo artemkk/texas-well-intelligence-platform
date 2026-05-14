@@ -103,6 +103,13 @@ TABLE_CONFIG = {
         "bool_cols": ["is_current"],
         "fk": {"api10": "twip_well_master"},
     },
+    "twip_dim_operator_consolidation": {
+        "pk": None,
+        "required": ["operator_number"],
+        "id_cols": ["operator_number"],
+        "date_cols": [],
+        "bool_cols": [],
+    },
 }
 
 DEFAULT_CONFIG = {
@@ -210,14 +217,20 @@ def write_companion(slug, results, raw_dir=RAW_DIR):
 
 
 def discover_tables(raw_dir=RAW_DIR):
-    """Discover all TWIP tables in data/raw/."""
+    """Discover all TWIP tables in data/raw/.
+
+    Scans every subdirectory for a parquet file matching the dir name.
+    Skips QA companion dirs (twip_qa_*) and summary dirs.
+    """
     tables = []
+    skip_prefixes = ("twip_qa_", "_")
     for d in sorted(os.listdir(raw_dir)):
         dp = os.path.join(raw_dir, d)
         if not os.path.isdir(dp):
             continue
-        if d.startswith("twip_qa_"):
+        if any(d.startswith(p) for p in skip_prefixes):
             continue
+        # Match dir_name/dir_name.parquet (canonical pattern)
         fp = os.path.join(dp, f"{d}.parquet")
         if os.path.exists(fp):
             tables.append(d)

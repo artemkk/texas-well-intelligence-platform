@@ -15,7 +15,7 @@ import pandas as pd
 
 LOG_PATH = Path("logs/operator_history.log")
 COMP_PATH = Path("data/raw/twip_fact_well_completions/twip_fact_well_completions.parquet")
-OUTPUT_DIR = Path("data/raw/rrc_operator_history")
+OUTPUT_DIR = Path("data/raw/twip_dim_operator_history")
 
 
 def setup_logging(log_path: Path) -> logging.Logger:
@@ -35,8 +35,8 @@ def setup_logging(log_path: Path) -> logging.Logger:
 
 def derive(subset: int | None, log: logging.Logger):
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = OUTPUT_DIR / "operator_history.parquet"
-    tmp_path = OUTPUT_DIR / "operator_history.parquet.tmp"
+    out_path = OUTPUT_DIR / "twip_dim_operator_history.parquet"
+    tmp_path = OUTPUT_DIR / "twip_dim_operator_history.parquet.tmp"
 
     comp = pd.read_parquet(COMP_PATH)
     log.info(f"Completions loaded: {len(comp):,} rows, {comp['api10'].nunique():,} api10s")
